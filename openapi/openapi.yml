@@ -1,0 +1,50 @@
+openapi: 3.0.1
+info:
+  title: GitLab Webhook API
+  description: API to receive GitLab webhook events
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /gitlab/webhook:
+    post:
+      summary: Receive GitLab Webhook
+      description: Endpoint to receive GitLab webhook events
+      operationId: receiveGitlabWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                object_kind: "push"
+                event_name: "push"
+                user_name: "John Doe"
+                project:
+                  name: "example-repo"
+                  git_http_url: "https://gitlab.com/example-repo"
+      parameters:
+        - in: header
+          name: X-Gitlab-Token
+          required: true
+          schema:
+            type: string
+          description: Secret token for verifying webhook authenticity
+      responses:
+        '200':
+          description: Webhook processed successfully
+        '403':
+          description: Invalid token
+        '400':
+          description: Invalid payload
+
+components:
+  securitySchemes:
+    GitlabToken:
+      type: apiKey
+      in: header
+      name: X-Gitlab-Token
