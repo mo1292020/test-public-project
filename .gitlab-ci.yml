@@ -1,0 +1,62 @@
+stages:
+  - build
+  - test
+  - package
+  - docker
+  - deploy
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+  MAVEN_CLI_OPTS: "-B -s .maven/settings.xml"
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .m2/repository
+
+before_script:
+  - echo "Running as $CI_JOB_NAME on branch $CI_COMMIT_REF_NAME"
+  - export JAVA_HOME="/usr/lib/jvm/java-17-openjdk"
+  - export PATH=$JAVA_HOME/bin:$PATH
+
+build-job:
+  stage: build
+  image: maven:3.9.6-eclipse-temurin-17
+  script:
+    - mvn $MAVEN_CLI_OPTS clean compile
+
+test-job:
+  stage: test
+  image: maven:3.9.6-eclipse-temurin-17
+  script:
+    - mvn $MAVEN_CLI_OPTS test
+
+package-job:
+  stage: package
+  image: maven:3.9.6-eclipse-temurin-17
+  script:
+    - mvn $MAVEN_CLI_OPTS package -DskipTests
+  artifacts:
+    paths:
+      - target/*.jar
+
+docker-build:
+  stage: docker
+  image: docker:24.0.2
+  services:
+    - docker:dind
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker build -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA" .
+    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA"
+  only:
+    - main
+
+deploy-prod:
+  stage: deploy
+  image: curlimages/curl:latest
+  script:
+    - echo "Deploying to production..."
+    - curl -X POST https://your-deployment-api/trigger?ref=main
+  only:
+    - main
